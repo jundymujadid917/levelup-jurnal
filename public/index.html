@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LevelUp" />
+    <meta name="description" content="Solo Leveling-style habit & workout tracker" />
+
+    <!-- iOS splash / icon -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/icon-192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <title>LevelUp Journal</title>
+
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #0a0a0f;
+        color: #e2e8f0;
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        /* safe area untuk notch/dynamic island */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      #root { min-height: 100dvh; }
+    </style>
+  </head>
+  <body>
+    <noscript>LevelUp Journal membutuhkan JavaScript.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
