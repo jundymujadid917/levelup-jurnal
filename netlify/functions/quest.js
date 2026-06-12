@@ -3,32 +3,30 @@ exports.handler = async function(event) {
 
   try {
     const { prompt } = JSON.parse(event.body);
-    const apiKey = process.env.GEMINI_API_KEY || "";
-    if(!apiKey) return { statusCode:500, body: JSON.stringify({ error:"GEMINI_API_KEY not set" }) };
+    const apiKey = process.env.GROQ_API_KEY || "";
+    if(!apiKey) return { statusCode:500, body: JSON.stringify({ error:"GROQ_API_KEY not set" }) };
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 1200,
-          },
-        }),
-      }
-    );
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1200,
+        temperature: 0.8,
+      }),
+    });
 
     const data = await res.json();
 
     if(!res.ok) {
-      return { statusCode: res.status, body: JSON.stringify({ error: data.error?.message || "Gemini error" }) };
+      return { statusCode: res.status, body: JSON.stringify({ error: data.error?.message || "Groq error" }) };
     }
 
-    // Extract text from Gemini response format
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    const text = data.choices?.[0]?.message?.content || "[]";
 
     return {
       statusCode: 200,
