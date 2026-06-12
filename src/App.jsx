@@ -476,7 +476,7 @@ Assign 5 daily quests. Weight toward focus area, counter bad habits.
 Return ONLY a JSON array.
 Each: {"id":"snake_case","title":"Epic title","description":"1 sentence","category":"workout|ibadah|learning|recovery|challenge","stat":"STR|AGI|VIT|INT|WIS","xpReward":20-80,"statReward":1-5,"coinReward":5-20,"difficulty":"E|D|C|B|A","action":"Specific measurable task"}`;
 
-  // Panggil via Netlify Function (proxy) untuk hindari CORS
+  // Panggil via Netlify Function (proxy) — Gemini AI
   const res = await fetch("/.netlify/functions/quest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -491,7 +491,7 @@ Each: {"id":"snake_case","title":"Epic title","description":"1 sentence","catego
   const data = await res.json();
   if(data.error) throw new Error("API Error: "+(data.error.message||JSON.stringify(data.error)));
 
-  const text = data.content?.find(b=>b.type==="text")?.text||"[]";
+  const text = data.text || "[]";
   try{
     const clean=text.replace(/```json|```/g,"").trim();
     return JSON.parse(clean).map(q=>({...q,completed:false,date:today()}));
