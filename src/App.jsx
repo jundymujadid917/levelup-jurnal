@@ -476,22 +476,26 @@ Assign 5 daily quests. Weight toward focus area, counter bad habits.
 Return ONLY a JSON array.
 Each: {"id":"snake_case","title":"Epic title","description":"1 sentence","category":"workout|ibadah|learning|recovery|challenge","stat":"STR|AGI|VIT|INT|WIS","xpReward":20-80,"statReward":1-5,"coinReward":5-20,"difficulty":"E|D|C|B|A","action":"Specific measurable task"}`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "x-api-key": process.env.REACT_APP_ANTHROPIC_KEY || "",
-      "anthropic-version":"2023-06-01",
-      "anthropic-dangerous-direct-browser-access":"true",
-    },
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:prompt}]}),
+  // Panggil via Netlify Function (proxy) untuk hindari CORS
+  const res = await fetch("/.netlify/functions/quest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
   });
+
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error("HTTP "+res.status+": "+errText.slice(0,150));
+  }
+
   const data = await res.json();
+  if(data.error) throw new Error("API Error: "+(data.error.message||JSON.stringify(data.error)));
+
   const text = data.content?.find(b=>b.type==="text")?.text||"[]";
   try{
     const clean=text.replace(/```json|```/g,"").trim();
     return JSON.parse(clean).map(q=>({...q,completed:false,date:today()}));
-  }catch{return [];}
+  }catch(e){ throw new Error("Parse error: "+e.message); }
 }
 
 // ─── ASSESSMENT SCREEN ────────────────────────────────────────────────────────
@@ -588,7 +592,7 @@ export default function App(){
       if(!quests.length)throw new Error();
       setState(s=>({...s,assessment:answers,assessmentDate:today(),quests,lastQuestDate:today()}));
       showNotif("success",`✅ ${quests.length} quest baru di-assign.`);
-    }catch{showNotif("error","⚠️ Quest generation gagal. Cek koneksi.");}
+    }catch(e){showNotif("error","⚠️ "+e.message,6000);}
     setLoading(false);
   },[state,showNotif]);
 
@@ -600,7 +604,7 @@ export default function App(){
       if(!quests.length)throw new Error();
       setState(s=>({...s,quests,lastQuestDate:today()}));
       showNotif("success",`✅ ${quests.length} quest di-assign.`);
-    }catch{showNotif("error","⚠️ Gagal. Cek koneksi.");}
+    }catch(e){showNotif("error","⚠️ "+e.message,6000);}
     setLoading(false);
   },[state,showNotif]);
 
