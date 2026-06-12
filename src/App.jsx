@@ -103,6 +103,7 @@ const INITIAL_STATE = {
   aiQuests:[], aiQuestDate:null,
   completedHistory:[], streak:0,
   setupDone:false, assessment:null, assessmentDate:null,
+  streak:0, lastStreakDate:null, bestStreak:0,
 };
 
 // ─── AVATAR DISPLAY ───────────────────────────────────────────────────────────
@@ -363,6 +364,31 @@ export default function App(){
       }
       if(nextStatus)setTimeout(()=>showNotif("xp",`+${quest.exp} EXP  ·  🪙+${coins}  ·  +1 ${quest.stat}`),100);
 
+      // Streak logic — update when completing (not unchecking)
+      let newStreak = prev.streak || 0;
+      let newBestStreak = prev.bestStreak || 0;
+      let newLastStreakDate = prev.lastStreakDate;
+      if(nextStatus){
+        const todayStr = today();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate()-1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        if(prev.lastStreakDate === todayStr){
+          // already counted today, no change
+        } else if(prev.lastStreakDate === yesterdayStr){
+          newStreak = (prev.streak||0) + 1;
+          newLastStreakDate = todayStr;
+        } else if(!prev.lastStreakDate){
+          newStreak = 1;
+          newLastStreakDate = todayStr;
+        } else {
+          // streak broken
+          newStreak = 1;
+          newLastStreakDate = todayStr;
+        }
+        newBestStreak = Math.max(newBestStreak, newStreak);
+      }
+
       const updatedList=list.map(q=>q.id===questId?{...q,completed:nextStatus}:q);
 
       return{
@@ -374,6 +400,7 @@ export default function App(){
         staticQuests:isAI?prev.staticQuests:updatedList,
         aiQuests:isAI?updatedList:prev.aiQuests,
         completedHistory:nextStatus?[...(prev.completedHistory||[]),{...quest,completedAt:Date.now(),date:today()}]:prev.completedHistory,
+        streak:newStreak, lastStreakDate:newLastStreakDate, bestStreak:newBestStreak,
       };
     });
   },[showNotif]);
@@ -511,6 +538,22 @@ export default function App(){
         <div style={css.xpTrack}><div style={{...css.xpFill,width:`${xpPct}%`}}/></div>
       </div>
 
+      {/* STREAK BAR */}
+      <div style={{padding:"6px 20px 8px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #1a1a2e"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:16}}>🔥</span>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:state.streak>=3?"#f97316":"#64748b",fontFamily:"monospace"}}>
+              {state.streak||0} hari streak
+            </div>
+          </div>
+        </div>
+        <div style={{flex:1,height:3,background:"#1a1a2e",borderRadius:3,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${Math.min(100,((state.streak||0)/30)*100)}%`,background:"linear-gradient(90deg,#f97316,#fbbf24)",borderRadius:3,transition:"width 0.5s ease"}}/>
+        </div>
+        <div style={{fontSize:10,color:"#475569",fontFamily:"monospace"}}>Best: {state.bestStreak||0}</div>
+      </div>
+
       {/* NAV */}
       <div style={css.nav}>
         {["quests","stats","skills"].map(t=>(
@@ -600,7 +643,7 @@ export default function App(){
           <div style={{marginTop:12,padding:"12px 16px",background:"#0f1620",borderRadius:8,border:"1px solid #1e293b"}}>
             <div style={{fontSize:10,color:"#64748b",letterSpacing:2,marginBottom:8}}>AKTIVITAS</div>
             <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-              {[{val:state.completedHistory?.length||0,label:"MISI",color:"#4fc3f7"},{val:state.unlockedSkills.length,label:"SKILL",color:"#a78bfa"},{val:state.coins||0,label:"KOIN",color:"#fbbf24"},{val:state.level,label:"LEVEL",color:"#ef4444"}].map(x=>(
+              {[{val:state.completedHistory?.length||0,label:"MISI",color:"#4fc3f7"},{val:state.streak||0,label:"STREAK 🔥",color:"#f97316"},{val:state.bestStreak||0,label:"BEST",color:"#fbbf24"},{val:state.level,label:"LEVEL",color:"#ef4444"}].map(x=>(
                 <div key={x.label}>
                   <div style={{fontSize:20,fontWeight:900,color:x.color,fontFamily:"monospace"}}>{x.val}</div>
                   <div style={{fontSize:9,color:"#64748b",letterSpacing:1}}>{x.label}</div>
