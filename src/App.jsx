@@ -18,6 +18,7 @@ try {
   db = getFirestore(app);
 } catch(e) { console.warn("Firebase not configured, using localStorage"); }
 
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RANK_LABELS = ["E","E","E","D","D","D","C","C","C","B","B","B","A","A","A","S","S","S","SS","SS","SSS"];
 const RANK_COLORS = {E:"#64748b",D:"#22c55e",C:"#3b82f6",B:"#a855f7",A:"#f59e0b",S:"#ef4444",SS:"#f97316",SSS:"#fbbf24"};
