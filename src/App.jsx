@@ -336,97 +336,191 @@ function AssessmentScreen({existing,onSave,onSkip}){
   );
 }
 
-// ─── PROGRESS PANEL ───────────────────────────────────────────────────────────
-function ProgressPanel({state}){
-  const log=state.dailyLog||{};
-  const dates=Object.keys(log).sort().slice(-14); // last 14 days
+// ─── PROGRESS PANEL ─────────────────────────────────────────────────────────
 
-  // Streak calendar — last 30 days
-  const calDays=[];
-  for(let i=29;i>=0;i--){
-    const d=new Date();d.setDate(d.getDate()-i);
-    const ds=d.toISOString().split("T")[0];
-    calDays.push({date:ds,label:formatDate(ds),data:log[ds]||null});
+function ProgressPanel({state}){
+  const log = state.dailyLog || {};
+  const allDates = Object.keys(log).sort();
+  const recentDates = allDates.slice(-14).reverse();
+
+  // Last 30 days calendar
+  const calDays = [];
+  for(let i=29; i>=0; i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().split("T")[0];
+    calDays.push({ date:ds, data:log[ds]||null });
   }
 
-  const totalByCategory={Fisik:0,Iman:0,"Self Improvement":0};
-  Object.values(log).forEach(day=>{
-    if(day.categories){
-      Object.entries(day.categories).forEach(([cat,val])=>{
-        if(totalByCategory[cat]!==undefined)totalByCategory[cat]+=val;
+  // Total per category (all time)
+  const totalByCat = { Fisik:0, Iman:0, "Self Improvement":0 };
+  allDates.forEach(date => {
+    const day = log[date];
+    if(day?.categories){
+      Object.entries(day.categories).forEach(([cat,val]) => {
+        if(totalByCat[cat] !== undefined) totalByCat[cat] += val;
       });
     }
   });
+  const maxCat = Math.max(...Object.values(totalByCat), 1);
+
+  // Weekly EXP (last 7 days)
+  const weekDays = [];
+  for(let i=6; i>=0; i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().split("T")[0];
+    const dayData = log[ds];
+    weekDays.push({
+      label: ["Min","Sen","Sel","Rab","Kam","Jum","Sab"][d.getDay()],
+      exp: dayData?.exp || 0,
+      total: dayData?.total || 0,
+      isToday: i === 0,
+    });
+  }
+  const maxExp = Math.max(...weekDays.map(d=>d.exp), 1);
+
+  // Total EXP all time
+  const totalExpAllTime = allDates.reduce((sum,d) => sum + (log[d]?.exp||0), 0);
+  const activeDays = allDates.length;
 
   return(
-    <div style={css.tab}>
-      {/* Streak */}
-      <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px",marginBottom:16}}>
-        <div style={{fontSize:10,color:"#64748b",letterSpacing:2,marginBottom:12}}>STREAK</div>
-        <div style={{display:"flex",gap:16,marginBottom:12}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:32,fontWeight:900,color:"#f97316",fontFamily:"monospace",lineHeight:1}}>{state.streak||0}</div>
-            <div style={{fontSize:9,color:"#64748b",marginTop:2}}>HARI INI 🔥</div>
+    <div style={{...css.tab, paddingBottom:60}}>
+
+      {/* ── RINGKASAN UMUM ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+        {[
+          {val:state.streak||0,     label:"Streak 🔥",  color:"#f97316"},
+          {val:state.bestStreak||0, label:"Rekor 🏆",   color:"#fbbf24"},
+          {val:activeDays,          label:"Hari Aktif",  color:"#4fc3f7"},
+        ].map(x=>(
+          <div key={x.label} style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:10,padding:"12px 8px",textAlign:"center"}}>
+            <div style={{fontSize:26,fontWeight:900,color:x.color,fontFamily:"monospace",lineHeight:1}}>{x.val}</div>
+            <div style={{fontSize:9,color:"#64748b",marginTop:4,letterSpacing:0.5}}>{x.label}</div>
           </div>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:32,fontWeight:900,color:"#fbbf24",fontFamily:"monospace",lineHeight:1}}>{state.bestStreak||0}</div>
-            <div style={{fontSize:9,color:"#64748b",marginTop:2}}>REKOR TERBAIK</div>
-          </div>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:32,fontWeight:900,color:"#4fc3f7",fontFamily:"monospace",lineHeight:1}}>{state.completedHistory?.length||0}</div>
-            <div style={{fontSize:9,color:"#64748b",marginTop:2}}>TOTAL QUEST</div>
-          </div>
-        </div>
-        {/* Streak calendar dots */}
-        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-          {calDays.map(d=>(
-            <div key={d.date} title={d.date}
-              style={{width:20,height:20,borderRadius:4,background:d.data?(d.data.total>=3?"#16a34a":d.data.total>=1?"#15803d44":"#14532d22"):"#1a1a2e",border:`1px solid ${d.data?"#16a34a33":"#1e293b"}`,transition:"all 0.2s",cursor:"default"}}
-            />
-          ))}
-        </div>
-        <div style={{fontSize:9,color:"#475569",marginTop:6,letterSpacing:1}}>● 30 HARI TERAKHIR — HIJAU = AKTIF</div>
+        ))}
       </div>
 
-      {/* Category progress */}
-      <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px",marginBottom:16}}>
+      {/* ── KALENDER STREAK 30 HARI ── */}
+      <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px",marginBottom:12}}>
+        <div style={{fontSize:10,color:"#64748b",letterSpacing:2,marginBottom:10}}>AKTIVITAS 30 HARI TERAKHIR</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {calDays.map(d=>{
+            const intensity = d.data
+              ? d.data.total >= 5 ? "#16a34a"
+              : d.data.total >= 3 ? "#15803d"
+              : d.data.total >= 1 ? "#166534"
+              : "#0f2818"
+              : "#1a1a2e";
+            const isToday = d.date === new Date().toISOString().split("T")[0];
+            return(
+              <div key={d.date}
+                title={d.date + (d.data ? " — "+d.data.total+" quest, +"+d.data.exp+" XP" : " — tidak aktif")}
+                style={{
+                  width:22, height:22, borderRadius:4,
+                  background:intensity,
+                  border:`1px solid ${isToday?"#4fc3f7":d.data?"#16a34a33":"#1e293b"}`,
+                  boxShadow:isToday?"0 0 0 1px #4fc3f7":undefined,
+                  cursor:"default", transition:"all 0.2s",
+                }}
+              />
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+          <span style={{fontSize:9,color:"#475569"}}>Kurang aktif</span>
+          {["#0f2818","#166534","#15803d","#16a34a"].map(c=>(
+            <div key={c} style={{width:12,height:12,borderRadius:2,background:c}}/>
+          ))}
+          <span style={{fontSize:9,color:"#475569"}}>Aktif banget</span>
+        </div>
+      </div>
+
+      {/* ── GRAFIK XP MINGGUAN ── */}
+      <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px",marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:10,color:"#64748b",letterSpacing:2}}>XP MINGGU INI</div>
+          <div style={{fontSize:11,color:"#4fc3f7",fontFamily:"monospace"}}>Total: {totalExpAllTime} XP</div>
+        </div>
+        <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
+          {weekDays.map((d,i)=>{
+            const h = maxExp > 0 ? Math.max(4, (d.exp/maxExp)*72) : 4;
+            return(
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <div style={{fontSize:8,color:d.exp>0?"#4fc3f7":"#334155",fontFamily:"monospace"}}>{d.exp>0?d.exp:""}</div>
+                <div style={{
+                  width:"100%", height:h,
+                  background:d.isToday
+                    ? "linear-gradient(180deg,#4fc3f7,#1e40af)"
+                    : d.exp>0 ? "linear-gradient(180deg,#334155,#1e293b)" : "#0f172a",
+                  borderRadius:"4px 4px 2px 2px",
+                  border:d.isToday?"1px solid #4fc3f788":undefined,
+                  transition:"height 0.5s ease",
+                }}/>
+                <div style={{fontSize:8,color:d.isToday?"#4fc3f7":"#475569"}}>{d.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── PROGRESS PER KATEGORI ── */}
+      <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px",marginBottom:12}}>
         <div style={{fontSize:10,color:"#64748b",letterSpacing:2,marginBottom:12}}>TOTAL QUEST PER KATEGORI</div>
         {Object.entries(CAT_META).map(([cat,m])=>{
-          const total=totalByCategory[cat]||0;
-          const max=Math.max(...Object.values(totalByCategory),1);
+          const total = totalByCat[cat] || 0;
+          const pct = (total/maxCat)*100;
           return(
-            <div key={cat} style={{marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontSize:12,color:"#e2e8f0"}}>{m.icon} {cat}</span>
-                <span style={{fontSize:12,fontWeight:700,color:m.color,fontFamily:"monospace"}}>{total}</span>
+            <div key={cat} style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                <span style={{fontSize:13,color:"#e2e8f0",fontFamily:"'Rajdhani',sans-serif"}}>{m.icon} {cat}</span>
+                <span style={{fontSize:13,fontWeight:700,color:m.color,fontFamily:"monospace"}}>{total} quest</span>
               </div>
-              <div style={{...css.xpTrack,height:6}}><div style={{...css.xpFill,width:`${(total/max)*100}%`,background:m.color}}/></div>
+              <div style={{...css.xpTrack,height:7}}>
+                <div style={{...css.xpFill,width:`${pct}%`,background:m.color}}/>
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Daily log */}
+      {/* ── RIWAYAT HARIAN ── */}
       <div style={{background:"#0e1117",border:"1px solid #1e293b",borderRadius:12,padding:"16px"}}>
         <div style={{fontSize:10,color:"#64748b",letterSpacing:2,marginBottom:12}}>RIWAYAT HARIAN</div>
-        {dates.length===0?(
-          <div style={{textAlign:"center",padding:"20px",color:"#475569",fontSize:12}}>Belum ada riwayat</div>
+        {recentDates.length===0?(
+          <div style={{textAlign:"center",padding:"24px",color:"#475569",fontSize:12}}>
+            <div style={{fontSize:28,marginBottom:8}}>📋</div>
+            Belum ada riwayat — selesaikan quest pertamamu!
+          </div>
         ):(
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {[...dates].reverse().map(date=>{
-              const d=log[date];
+            {recentDates.map(date=>{
+              const d = log[date];
+              const isToday = date === new Date().toISOString().split("T")[0];
               return(
-                <div key={date} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"#0a0a0f",borderRadius:8,border:"1px solid #1e293b"}}>
-                  <div style={{fontSize:10,color:"#64748b",fontFamily:"monospace",minWidth:40}}>{formatDate(date)}</div>
-                  <div style={{flex:1,display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {Object.entries(CAT_META).map(([cat,m])=>(
-                      <span key={cat} style={{fontSize:9,color:m.color,background:`${m.color}22`,padding:"2px 6px",borderRadius:3}}>
-                        {m.icon} {d.categories?.[cat]||0}
+                <div key={date} style={{padding:"12px",background:"#0a0a0f",borderRadius:8,border:`1px solid ${isToday?"#1e3a5f":"#1e293b"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:11,color:isToday?"#4fc3f7":"#64748b",fontFamily:"monospace",fontWeight:700}}>
+                        {isToday?"Hari ini":formatDate(date)}
                       </span>
-                    ))}
+                      {isToday&&<span style={{fontSize:9,color:"#4fc3f7",border:"1px solid #4fc3f733",padding:"1px 5px",borderRadius:3}}>TODAY</span>}
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#4fc3f7",fontFamily:"monospace"}}>+{d.exp||0} XP</span>
+                      <span style={{fontSize:10,color:"#475569"}}>{d.total||0} quest</span>
+                    </div>
                   </div>
-                  <div style={{fontSize:11,fontWeight:700,color:"#4fc3f7",fontFamily:"monospace"}}>+{d.exp||0} XP</div>
-                  <div style={{fontSize:10,color:"#64748b"}}>{d.total||0} quest</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {Object.entries(CAT_META).map(([cat,m])=>{
+                      const count = d.categories?.[cat] || 0;
+                      return(
+                        <div key={cat} style={{flex:1,background:`${m.color}11`,border:`1px solid ${m.color}33`,borderRadius:6,padding:"5px",textAlign:"center",opacity:count>0?1:0.3}}>
+                          <div style={{fontSize:14}}>{m.icon}</div>
+                          <div style={{fontSize:10,fontWeight:700,color:m.color,fontFamily:"monospace"}}>{count}</div>
+                          <div style={{fontSize:8,color:"#475569",marginTop:1}}>{cat==="Self Improvement"?"Self":cat}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -436,6 +530,7 @@ function ProgressPanel({state}){
     </div>
   );
 }
+
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
