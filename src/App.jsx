@@ -18,7 +18,6 @@ try {
   db = getFirestore(app);
 } catch(e) { console.warn("Firebase not configured, using localStorage"); }
 
-
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RANK_LABELS = ["E","E","E","D","D","D","C","C","C","B","B","B","A","A","A","S","S","S","SS","SS","SSS"];
 const RANK_COLORS = {E:"#64748b",D:"#22c55e",C:"#3b82f6",B:"#a855f7",A:"#f59e0b",S:"#ef4444",SS:"#f97316",SSS:"#fbbf24"};
@@ -683,7 +682,7 @@ export default function App(){
         <div style={{fontSize:28,fontWeight:900,color:"#e2e8f0",fontFamily:"'Rajdhani',sans-serif",marginBottom:2}}>MUSLIM LEVELUP</div>
         <div style={{fontSize:12,color:"#34d399",marginBottom:28,letterSpacing:2}}>v2.0</div>
         <input style={css.input} placeholder="Nama hunter..." value={setupName} onChange={e=>setSetupName(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&setupName.trim()&&handleSetup(setupName.trim())}/>
+          onKeyDown={e=>{if(e.key==="Enter"&&setupName.trim()){const name=setupName.trim();const uid=name.toLowerCase().replace(/\s+/g,"_")+"_"+name.length;setLoadingFirebase(true);loadFromFirebase(uid).then(saved=>{if(saved&&saved.setupDone){setState({...INITIAL_STATE,...saved,playerName:name});}else{setState(s=>({...s,playerName:name,setupDone:true}));}setLoadingFirebase(false);});}}}/>
         <button style={{...css.btnPrimary,opacity:setupName.trim()?1:0.4,borderColor:"#34d399",color:"#34d399"}}
           disabled={!setupName.trim()||loadingFirebase}
           onClick={async()=>{
