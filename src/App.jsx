@@ -68,6 +68,109 @@ const CAT_META = {
   "Self Improvement": {color:"#a78bfa", icon:"🧠", stat:"INT"},
 };
 
+// ─── AVATAR DISPLAY ───────────────────────────────────────────────────────────
+
+function AvatarDisplay({avatarImage,equippedFrame,equippedBadge,size=64,animated=false,onClick,showEdit=false}){
+  const frame=AVATAR_FRAMES.find(f=>f.id===equippedFrame)||AVATAR_FRAMES[0];
+  const badge=AVATAR_BADGES.find(b=>b.id===equippedBadge)||AVATAR_BADGES[0];
+  const radius=size*0.22;
+  return(
+    <div onClick={onClick} style={{position:"relative",width:size,height:size,borderRadius:radius,overflow:"visible",cursor:onClick?"pointer":"default",animation:animated?"float 3s ease-in-out infinite":undefined,flexShrink:0}}>
+      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}`}</style>
+      <div style={{width:size,height:size,borderRadius:radius,overflow:"hidden",...frame.style,background:avatarImage?"#000":"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {avatarImage?<img src={avatarImage} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>:<span style={{fontSize:size*0.4,opacity:0.4}}>👤</span>}
+      </div>
+      {badge.emoji&&<div style={{position:"absolute",bottom:-4,right:-4,background:"#0a0a0f",border:"2px solid #1a1a2e",borderRadius:"50%",width:size*0.32,height:size*0.32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.18,zIndex:2}}>{badge.emoji}</div>}
+      {showEdit&&<div style={{position:"absolute",top:-4,right:-4,background:"#533483",border:"2px solid #0a0a0f",borderRadius:"50%",width:size*0.3,height:size*0.3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.14,zIndex:3}}>✏️</div>}
+    </div>
+  );
+}
+
+// ─── AVATAR SCREEN ────────────────────────────────────────────────────────────
+
+function AvatarScreen({state,onUpdate,onClose}){
+  const fileRef=useRef();
+  const [tab,setTab]=useState("photo");
+  const [previewImg,setPreviewImg]=useState(state.avatarImage);
+  const [previewFrame,setPreviewFrame]=useState(state.equippedFrame);
+  const [previewBadge,setPreviewBadge]=useState(state.equippedBadge);
+  const [ownedFrames,setOwnedFrames]=useState(state.ownedFrames||["frame_basic","frame_hunter"]);
+  const [ownedBadges,setOwnedBadges]=useState(state.ownedBadges||["none","sword"]);
+  const [coins,setCoins]=useState(state.coins||0);
+
+  function handleFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setPreviewImg(ev.target.result);r.readAsDataURL(f);}
+  function buyFrame(frame){if(coins<frame.cost||ownedFrames.includes(frame.id))return;setCoins(c=>c-frame.cost);setOwnedFrames(f=>[...f,frame.id]);setPreviewFrame(frame.id);}
+  function buyBadge(badge){if(coins<badge.cost||ownedBadges.includes(badge.id))return;setCoins(c=>c-badge.cost);setOwnedBadges(b=>[...b,badge.id]);setPreviewBadge(badge.id);}
+  function handleSave(){onUpdate({avatarImage:previewImg,equippedFrame:previewFrame,equippedBadge:previewBadge,ownedFrames,ownedBadges,coins});onClose();}
+
+  const tabs=[{id:"photo",label:"📷 Foto"},{id:"frame",label:"🖼️ Frame"},{id:"badge",label:"🏅 Badge"}];
+  const itemMap={frame:AVATAR_FRAMES,badge:AVATAR_BADGES};
+
+  return(
+    <div style={{...css.root,position:"fixed",inset:0,zIndex:300,overflowY:"auto"}}>
+      <style>{FONTS}</style>
+      <div style={{padding:"18px 20px 10px",borderBottom:"1px solid #1a1a2e",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"#0a0a0f",zIndex:10}}>
+        <div style={{fontSize:11,color:"#64748b",letterSpacing:3,fontFamily:"monospace"}}>CUSTOMIZE AVATAR</div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:20}}>✕</button>
+      </div>
+      <div style={{background:"#0a0a14",borderBottom:"1px solid #1a1a2e",padding:"28px 0 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+        <AvatarDisplay avatarImage={previewImg} equippedFrame={previewFrame} equippedBadge={previewBadge} size={110} animated/>
+        <div style={{fontSize:10,color:"#64748b",letterSpacing:2}}>PREVIEW</div>
+        <div style={{fontSize:13,color:"#fbbf24",fontFamily:"monospace"}}>🪙 {coins} koin</div>
+      </div>
+      <div style={{display:"flex",borderBottom:"1px solid #1a1a2e",position:"sticky",top:49,background:"#0a0a0f",zIndex:9}}>
+        {tabs.map(t=><button key={t.id} style={{flex:1,background:"none",border:"none",color:tab===t.id?"#4fc3f7":"#64748b",fontSize:12,padding:"11px 4px",cursor:"pointer",borderBottom:`2px solid ${tab===t.id?"#4fc3f7":"transparent"}`}} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+      </div>
+      <div style={{padding:20,paddingBottom:100}}>
+        {tab==="photo"&&(
+          <div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>Upload foto untuk jadi avatarmu</div>
+            <div onClick={()=>fileRef.current.click()} style={{border:"2px dashed #334155",borderRadius:12,padding:"32px 20px",textAlign:"center",cursor:"pointer",marginBottom:16,background:"#0e1117"}}>
+              <div style={{fontSize:40,marginBottom:10}}>{previewImg?"🔄":"📷"}</div>
+              <div style={{fontSize:13,color:"#e2e8f0",marginBottom:4}}>{previewImg?"Ganti foto":"Upload foto"}</div>
+              <div style={{fontSize:11,color:"#475569"}}>JPG, PNG — max 5MB</div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
+            {previewImg&&(
+              <div style={{display:"flex",gap:10}}>
+                <div style={{flex:1,background:"#0e1117",border:"1px solid #1e293b",borderRadius:10,overflow:"hidden",aspectRatio:"1"}}><img src={previewImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>
+                <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:8}}>
+                  <button style={{...css.btnSecondary,marginTop:0,fontSize:11,padding:"8px 12px"}} onClick={()=>fileRef.current.click()}>🔄 Ganti</button>
+                  <button style={{background:"transparent",border:"1px solid #ef4444",color:"#ef4444",padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:"monospace"}} onClick={()=>setPreviewImg(null)}>🗑️ Hapus</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {(tab==="frame"||tab==="badge")&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {itemMap[tab].map(item=>{
+              const owned=tab==="frame"?ownedFrames.includes(item.id):ownedBadges.includes(item.id);
+              const active=tab==="frame"?previewFrame===item.id:previewBadge===item.id;
+              const canSee=state.level>=item.unlockLevel;
+              return(
+                <div key={item.id} onClick={()=>owned&&(tab==="frame"?setPreviewFrame(item.id):setPreviewBadge(item.id))}
+                  style={{background:active?"#1a2a4a":"#0e1117",border:`1px solid ${active?"#4fc3f7":"#1e293b"}`,borderRadius:10,padding:"14px 12px",cursor:owned?"pointer":"default",opacity:canSee?1:0.35,textAlign:"center",transition:"all 0.15s"}}>
+                  <div style={{fontSize:tab==="badge"?30:14,marginBottom:6}}>{tab==="badge"?(item.emoji||"∅"):item.label}</div>
+                  {tab==="frame"&&<div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:36,height:36,borderRadius:8,overflow:"hidden",...item.style,background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{previewImg?<img src={previewImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}</div></div>}
+                  <div style={{fontSize:12,color:active?"#e2e8f0":"#94a3b8",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,marginBottom:4}}>{item.name||item.label}</div>
+                  {active&&<div style={{fontSize:9,color:"#4fc3f7",letterSpacing:1}}>✓ AKTIF</div>}
+                  {!owned&&canSee&&<button onClick={e=>{e.stopPropagation();tab==="frame"?buyFrame(item):buyBadge(item);}} style={{marginTop:6,background:"transparent",border:`1px solid ${coins>=item.cost?"#fbbf24":"#475569"}`,color:coins>=item.cost?"#fbbf24":"#475569",padding:"4px 10px",borderRadius:5,cursor:coins>=item.cost?"pointer":"not-allowed",fontSize:10,fontFamily:"monospace",width:"100%"}}>{item.cost===0?"GRATIS":`🪙 ${item.cost}`}</button>}
+                  {!owned&&!canSee&&<div style={{fontSize:9,color:"#475569",marginTop:4}}>LV.{item.unlockLevel}</div>}
+                  {owned&&!active&&<div style={{fontSize:9,color:"#334155",marginTop:4,letterSpacing:1}}>TAP UNTUK PAKAI</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 20px 24px",background:"linear-gradient(transparent,#0a0a0f 30%)",zIndex:20}}>
+        <button style={css.btnPrimary} onClick={handleSave}>💾 SIMPAN AVATAR</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── ASSESSMENT ─────────────────────────────────────────────────────────────
 
 const ASSESSMENT_STEPS = [
