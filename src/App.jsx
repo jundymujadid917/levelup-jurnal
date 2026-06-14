@@ -651,6 +651,8 @@ export default function App(){
   const [setupName,setSetupName]=useState("");
   const [showAssess,setShowAssess]=useState(false);
   const [showAvatar,setShowAvatar]=useState(false);
+  const [showLawanNafsu,setShowLawanNafsu]=useState(false);
+  const [lawanNafsuTarget,setLawanNafsuTarget]=useState(33);
   const [glitch,setGlitch]=useState(false);
 
   // userId — simple hash dari nama untuk Firebase key
@@ -777,6 +779,28 @@ export default function App(){
 
   const updateAvatar=useCallback((patch)=>{setState(s=>({...s,...patch}));},[]);
 
+  const handleLawanNafsu=useCallback(()=>{
+    // Determine press count based on assessment/level
+    const a=state.assessment||{};
+    const energi=a.energy_level||"";
+    let target=33;
+    if(energi.includes("1")||energi.includes("Hampir")){target=10;}
+    else if(energi.includes("4")||energi.includes("Setengah")){target=21;}
+    else if(energi.includes("7")||energi.includes("Masih")){target=33;}
+    else{target=33;}
+    setLawanNafsuTarget(target);
+    setShowLawanNafsu(true);
+  },[state.assessment]);
+
+  const handleLawanNafsuComplete=useCallback(()=>{
+    // Give bonus XP and coins
+    setState(s=>({...s, exp:s.exp+50, coins:(s.coins||0)+20}));
+    setTimeout(()=>{
+      setShowLawanNafsu(false);
+      showNotif("success","💪 MasyaAllah! +50 XP +20 🪙 — Nafsumu kalah hari ini!");
+    },500);
+  },[showNotif]);
+
   // ── SETUP WITH FIREBASE LOAD ──────────────────────────────────────────────
   if(!state.setupDone)return(
     <div style={css.root}><style>{FONTS}</style>
@@ -811,6 +835,13 @@ export default function App(){
     </div>
   );
 
+  if(showLawanNafsu)return(
+    <LawanNafsuModal
+      onClose={()=>setShowLawanNafsu(false)}
+      targetPress={lawanNafsuTarget}
+      onComplete={handleLawanNafsuComplete}
+    />
+  );
   if(showAssess)return <AssessmentScreen existing={state.assessment} onSave={handleSaveAssessment} onSkip={()=>setShowAssess(false)}/>;
   if(showAvatar)return <AvatarScreen state={state} onUpdate={updateAvatar} onClose={()=>setShowAvatar(false)}/>;
 
@@ -899,6 +930,31 @@ export default function App(){
       {/* ── QUESTS TAB ── */}
       {activeTab==="quests"&&(
         <div style={css.tab}>
+          {/* LAWAN NAFSU BUTTON */}
+          <button
+            onClick={handleLawanNafsu}
+            style={{
+              width:"100%",
+              padding:"16px",
+              marginBottom:16,
+              background:"linear-gradient(135deg,#1a0505,#2d0a0a)",
+              border:"2px solid #ef444466",
+              borderRadius:12,
+              cursor:"pointer",
+              display:"flex",
+              alignItems:"center",
+              gap:12,
+              transition:"all 0.2s",
+            }}
+          >
+            <div style={{fontSize:32}}>⚔️</div>
+            <div style={{flex:1,textAlign:"left"}}>
+              <div style={{fontSize:14,fontWeight:700,color:"#ef4444",fontFamily:"'Rajdhani',sans-serif",letterSpacing:1}}>LAWAN NAFSU</div>
+              <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Tekan tombol darurat saat futur atau malas</div>
+            </div>
+            <div style={{fontSize:20}}>🔥</div>
+          </button>
+
           {!hasAssessToday&&(
             <div onClick={()=>setShowAssess(true)} style={{marginBottom:16,padding:"12px 14px",background:"#0a1a14",border:"1px solid #34d399",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:20}}>📋</span>
@@ -1010,6 +1066,148 @@ export default function App(){
   );
 }
 
+// ─── LAWAN NAFSU MODAL ───────────────────────────────────────────────────────
+
+function LawanNafsuModal({onClose, targetPress, onComplete}){
+  const [pressCount, setPressCount] = useState(0);
+  const [currentContent, setCurrentContent] = useState(null);
+  const [contentType, setContentType] = useState("dzikir"); // alternates
+  const [shake, setShake] = useState(false);
+  const [done, setDone] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
+  const remaining = targetPress - pressCount;
+  const progress = (pressCount / targetPress) * 100;
+
+  useEffect(() => {
+    // Show first content
+    setCurrentContent(DZIKIR_DOA[0]);
+    setContentType("dzikir");
+  }, []);
+
+  function handlePress() {
+    if(done) return;
+    const newCount = pressCount + 1;
+    setPressCount(newCount);
+    setPulse(true);
+    setTimeout(() => setPulse(false), 150);
+
+    // Alternate between hadits and dzikir
+    const useHadits = newCount % 2 === 0;
+    if(useHadits) {
+      const idx = Math.floor(Math.random() * HADITS_MOTIVASI.length);
+      setCurrentContent(HADITS_MOTIVASI[idx]);
+      setContentType("hadits");
+    } else {
+      const idx = Math.floor(Math.random() * DZIKIR_DOA.length);
+      setCurrentContent(DZIKIR_DOA[idx]);
+      setContentType("dzikir");
+    }
+
+    if(newCount >= targetPress) {
+      setDone(true);
+      setTimeout(() => onComplete(), 2000);
+    }
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.96)",zIndex:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"32px 20px 40px"}}>
+      <style>{`
+        @keyframes pulseBtn{0%{transform:scale(1)}50%{transform:scale(0.94)}100%{transform:scale(1)}}
+        @keyframes glowGreen{0%{box-shadow:0 0 20px #16a34a55}50%{box-shadow:0 0 40px #16a34a99}100%{box-shadow:0 0 20px #16a34a55}}
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+
+      {/* Header */}
+      <div style={{width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:10,color:"#ef4444",letterSpacing:4,fontFamily:"monospace",marginBottom:4}}>
+          ⚠️ MODE DARURAT AKTIF
+        </div>
+        <div style={{fontSize:22,fontWeight:900,color:"#e2e8f0",fontFamily:"'Rajdhani',sans-serif",letterSpacing:1}}>
+          LAWAN NAFSUMU
+        </div>
+        <div style={{fontSize:11,color:"#64748b",marginTop:4}}>
+          {done ? "MasyaAllah! Kamu berhasil! 🎉" : `Tekan ${remaining}x lagi untuk menang`}
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div style={{width:"100%"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+          <span style={{fontSize:10,color:"#64748b",letterSpacing:2}}>PROGRESS</span>
+          <span style={{fontSize:12,fontWeight:700,color:done?"#22c55e":"#4fc3f7",fontFamily:"monospace"}}>{pressCount}/{targetPress}</span>
+        </div>
+        <div style={{height:6,background:"#1a1a2e",borderRadius:6,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${progress}%`,background:done?"linear-gradient(90deg,#16a34a,#22c55e)":"linear-gradient(90deg,#1e40af,#4fc3f7)",borderRadius:6,transition:"width 0.3s ease"}}/>
+        </div>
+        {/* Mini tasbih dots */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:10,justifyContent:"center"}}>
+          {Array.from({length:targetPress}).map((_,i)=>(
+            <div key={i} style={{width:10,height:10,borderRadius:"50%",background:i<pressCount?"#22c55e":"#1e293b",transition:"background 0.2s",border:`1px solid ${i<pressCount?"#16a34a":"#334155"}`}}/>
+          ))}
+        </div>
+      </div>
+
+      {/* Content card */}
+      {currentContent && (
+        <div key={pressCount} style={{width:"100%",background:"#0e1117",border:`1px solid ${contentType==="hadits"?"#f59e0b33":"#34d39933"}`,borderLeft:`3px solid ${contentType==="hadits"?"#f59e0b":"#34d399"}`,borderRadius:12,padding:"16px",animation:"fadeInUp 0.3s ease"}}>
+          <div style={{fontSize:9,color:contentType==="hadits"?"#f59e0b":"#34d399",letterSpacing:2,marginBottom:8,fontFamily:"monospace"}}>
+            {contentType==="hadits"?"📖 HADITS & AYAT":"🤲 DZIKIR & DOA"}
+            {currentContent.label && <span style={{marginLeft:8}}>— {currentContent.label}</span>}
+          </div>
+          <div style={{fontSize:15,color:"#e2e8f0",lineHeight:1.8,textAlign:"right",fontFamily:"serif",marginBottom:10,direction:"rtl"}}>
+            {currentContent.arab}
+          </div>
+          <div style={{fontSize:12,color:"#94a3b8",lineHeight:1.6,fontStyle:"italic",marginBottom:6}}>
+            "{currentContent.indo}"
+          </div>
+          {currentContent.sumber && (
+            <div style={{fontSize:10,color:"#475569",letterSpacing:1}}>{currentContent.sumber}</div>
+          )}
+        </div>
+      )}
+
+      {/* BIG PRESS BUTTON */}
+      {!done ? (
+        <button
+          onClick={handlePress}
+          style={{
+            width:180, height:180,
+            borderRadius:"50%",
+            background:pulse
+              ? "radial-gradient(circle,#1e3a5f,#0f1f3f)"
+              : "radial-gradient(circle,#0f1f3f,#0a0a1a)",
+            border:`3px solid ${pulse?"#4fc3f7":"#1e40af"}`,
+            boxShadow:pulse
+              ? "0 0 40px #4fc3f799, 0 0 80px #4fc3f733"
+              : "0 0 20px #1e40af55",
+            cursor:"pointer",
+            display:"flex",flexDirection:"column",
+            alignItems:"center",justifyContent:"center",
+            transition:"all 0.1s",
+            animation:pulse?"pulseBtn 0.15s ease":undefined,
+            userSelect:"none",
+          }}
+        >
+          <div style={{fontSize:40}}>💪</div>
+          <div style={{fontSize:13,color:"#4fc3f7",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,letterSpacing:2,marginTop:6}}>TEKAN</div>
+          <div style={{fontSize:10,color:"#334155",marginTop:2}}>tahan nafsu</div>
+        </button>
+      ) : (
+        <div style={{width:180,height:180,borderRadius:"50%",background:"radial-gradient(circle,#052e16,#0a1a0a)",border:"3px solid #22c55e",boxShadow:"0 0 40px #16a34a99",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",animation:"glowGreen 1.5s ease infinite"}}>
+          <div style={{fontSize:48}}>✅</div>
+          <div style={{fontSize:13,color:"#22c55e",fontFamily:"'Rajdhani',sans-serif",fontWeight:700,letterSpacing:2,marginTop:6}}>MENANG!</div>
+        </div>
+      )}
+
+      {/* Close */}
+      <button onClick={onClose} style={{background:"transparent",border:"1px solid #334155",color:"#64748b",padding:"10px 32px",borderRadius:8,cursor:"pointer",fontSize:11,letterSpacing:2,fontFamily:"monospace"}}>
+        {done?"TUTUP":"✕ MENYERAH"}
+      </button>
+    </div>
+  );
+}
+
 // ─── QUEST CARD ───────────────────────────────────────────────────────────────
 function QuestCard({quest,onToggle,catColor}){
   const diffColor={E:"#64748b",D:"#22c55e",C:"#3b82f6",B:"#a855f7",A:"#f59e0b",S:"#ef4444"};
@@ -1059,3 +1257,30 @@ const ANIMATIONS=`
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   @keyframes scaleIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
 `;
+// ─── LAWAN NAFSU CONTENT ─────────────────────────────────────────────────────
+
+const HADITS_MOTIVASI = [
+  { arab: "إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ", indo: "Sesungguhnya Allah tidak mengubah keadaan suatu kaum sehingga mereka mengubah keadaan yang ada pada diri mereka sendiri.", sumber: "QS. Ar-Ra'd: 11" },
+  { arab: "وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا", indo: "Barangsiapa bertakwa kepada Allah niscaya Dia akan mengadakan baginya jalan keluar.", sumber: "QS. Ath-Thalaq: 2" },
+  { arab: "فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", indo: "Maka sesungguhnya bersama kesulitan ada kemudahan.", sumber: "QS. Al-Insyirah: 5" },
+  { arab: "وَلَا تَهِنُوا وَلَا تَحْزَنُوا وَأَنتُمُ الْأَعْلَوْنَ", indo: "Janganlah kamu bersikap lemah, dan janganlah pula kamu bersedih hati, padahal kamulah orang-orang yang paling tinggi derajatnya.", sumber: "QS. Ali Imran: 139" },
+  { arab: "وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ", indo: "Jadikanlah sabar dan shalat sebagai penolongmu.", sumber: "QS. Al-Baqarah: 45" },
+  { arab: "إِنَّ اللَّهَ مَعَ الصَّابِرِينَ", indo: "Sesungguhnya Allah bersama orang-orang yang sabar.", sumber: "QS. Al-Baqarah: 153" },
+  { arab: "الْمُؤْمِنُ الْقَوِيُّ خَيْرٌ وَأَحَبُّ إِلَى اللَّهِ مِنَ الْمُؤْمِنِ الضَّعِيفِ", indo: "Mukmin yang kuat lebih baik dan lebih dicintai Allah daripada mukmin yang lemah.", sumber: "HR. Muslim" },
+  { arab: "احْرِصْ عَلَى مَا يَنْفَعُكَ وَاسْتَعِنْ بِاللَّهِ وَلَا تَعْجَزْ", indo: "Bersungguh-sungguhlah dalam hal yang bermanfaat bagimu, mintalah pertolongan kepada Allah, dan janganlah lemah.", sumber: "HR. Muslim" },
+  { arab: "خَيْرُ النَّاسِ أَنْفَعُهُمْ لِلنَّاسِ", indo: "Sebaik-baik manusia adalah yang paling bermanfaat bagi orang lain.", sumber: "HR. Ahmad" },
+  { arab: "مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ", indo: "Barangsiapa menempuh jalan untuk mencari ilmu, Allah akan mudahkan baginya jalan menuju surga.", sumber: "HR. Muslim" },
+];
+
+const DZIKIR_DOA = [
+  { arab: "أَسْتَغْفِرُ اللَّهَ الْعَظِيمَ الَّذِي لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ وَأَتُوبُ إِلَيْهِ", indo: "Aku memohon ampunan Allah Yang Maha Agung, yang tiada Tuhan selain Dia, Yang Maha Hidup lagi terus-menerus mengurus makhluk-Nya, dan aku bertaubat kepada-Nya.", label: "Istighfar" },
+  { arab: "لَا إِلَهَ إِلَّا أَنتَ سُبْحَانَكَ إِنِّي كُنتُ مِنَ الظَّالِمِينَ", indo: "Tidak ada Tuhan selain Engkau, Maha Suci Engkau, sesungguhnya aku termasuk orang-orang yang zalim.", label: "Doa Nabi Yunus" },
+  { arab: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ سُبْحَانَ اللَّهِ الْعَظِيمِ", indo: "Maha Suci Allah dan segala puji bagi-Nya, Maha Suci Allah Yang Maha Agung.", label: "Tasbih" },
+  { arab: "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", indo: "Cukuplah Allah menjadi penolong kami dan Allah adalah sebaik-baik pelindung.", label: "Tawakkal" },
+  { arab: "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ الْعَلِيِّ الْعَظِيمِ", indo: "Tiada daya dan tiada kekuatan kecuali dengan pertolongan Allah Yang Maha Tinggi lagi Maha Agung.", label: "Hauqalah" },
+  { arab: "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", indo: "Ya Allah, tolonglah aku untuk berdzikir kepada-Mu, bersyukur kepada-Mu, dan beribadah kepada-Mu dengan baik.", label: "Doa Setelah Sholat" },
+  { arab: "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْكَسَلِ وَالْهَرَمِ وَالْمَأْثَمِ وَالْمَغْرَمِ", indo: "Ya Allah, aku berlindung kepada-Mu dari rasa malas, kepikunan, perbuatan dosa, dan hutang.", label: "Doa Berlindung dari Malas" },
+  { arab: "اللَّهُمَّ لَا سَهْلَ إِلَّا مَا جَعَلْتَهُ سَهْلًا وَأَنتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلًا", indo: "Ya Allah, tidak ada kemudahan kecuali apa yang Engkau mudahkan, dan Engkau menjadikan kesedihan itu mudah jika Engkau menghendaki.", label: "Doa Kemudahan" },
+];
+
+
