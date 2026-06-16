@@ -323,58 +323,101 @@ async function loadFromFirebase(userId) {
 // ─── AI QUEST GENERATION ─────────────────────────────────────────────────────
 
 async function generateQuestsFromAI(player){
-  const rank=getRank(player.level);
-  const a=player.assessment||{};
+  const rank = getRank(player.level);
+  const lvl  = player.level;
+  const a    = player.assessment || {};
 
-  const fisikTarget=Array.isArray(a.fisik_target)?a.fisik_target.join(", "):"-";
-  const selfBuruk=Array.isArray(a.self_kebiasaan_buruk)?a.self_kebiasaan_buruk.join(", "):"-";
-  const selfTarget=Array.isArray(a.self_target)?a.self_target.join(", "):"-";
+  const fisikTarget   = Array.isArray(a.fisik_target)           ? a.fisik_target.join(", ")           : "-";
+  const selfBuruk     = Array.isArray(a.self_kebiasaan_buruk)   ? a.self_kebiasaan_buruk.join(", ")   : "-";
+  const selfTarget    = Array.isArray(a.self_target)            ? a.self_target.join(", ")            : "-";
+  const statLine      = Object.entries(player.stats).map(([k,v])=>k+":"+v).join(", ");
 
-  const roadmap = [
-    "ROADMAP MUSLIM IDEAL — panduan difficulty quest:",
-    "Level 1-3 (E): Bangun kesadaran. Contoh: 1 waktu berjamaah, 5 push-up, baca 5 menit.",
-    "Level 4-6 (D): Mulai konsisten. Contoh: Subuh berjamaah, 10 push-up, baca 10 menit.",
-    "Level 7-9 (C): Kebiasaan solid. Contoh: 2-3x berjamaah, 20 push-up, kurangi medsos.",
-    "Level 10-12 (B): Disiplin tinggi. Contoh: 3-4x berjamaah, tahajud 3x/minggu, 30 push-up.",
-    "Level 13-15 (A): Istiqomah. Contoh: 5x berjamaah, tahajud rutin, 50 push-up, kajian.",
-    "Level 16-19 (S): Mujahid. Contoh: 5x berjamaah + rawatib, tahajud+witir, pull-up, hafalan.",
-    "Level 20+ (SS/SSS): Muslim ideal. Contoh: seluruh sunnah harian, hafal Al-Quran, fisik prima.",
-  ].join("\n");
+  // ── MENTOR KALISTENIK ──────────────────────────────────────────────
+  const mentorKalistenik =
+    "Kamu adalah MENTOR KALISTENIK — seorang pelatih bodyweight berpengalaman 10 tahun. " +
+    "Kamu paham progression kalistenik dari nol: " +
+    "Wall push-up → Knee push-up → Push-up → Diamond push-up → Pike push-up → Handstand push-up. " +
+    "Pull-up progression: Dead hang → Scapular pull → Negative pull-up → Assisted pull-up → Pull-up penuh → Weighted pull-up. " +
+    "Core: Plank → Hollow body → L-sit → Dragon flag. " +
+    "Kamu tahu kapan harus deload, kapan push harder, dan bagaimana mencegah cedera. " +
+    "Gayamu tegas tapi supportif — seperti coach militer yang peduli. " +
+    "PENTING: Quest fisik harus SPESIFIK dengan angka (reps/set/durasi) yang realistis untuk level " + lvl + " (Rank " + rank + "). " +
+    "Level rendah (1-5): quest ringan. Level tinggi (10+): quest berat dan compound.";
 
-  const statLine = Object.entries(player.stats).map(([k,v])=>k+":"+v).join(", ");
+  // ── MENTOR IBADAH ──────────────────────────────────────────────────
+  const mentorIbadah =
+    "Kamu adalah MENTOR IBADAH — seorang ustadz yang bijaksana, memahami fiqih dan psikologi spiritual Muslim. " +
+    "Kamu tahu tahapan pembentukan Muslim ideal: " +
+    "Tahap 1 (Lv 1-3): Sholat tepat waktu → sholat berjamaah sesekali. " +
+    "Tahap 2 (Lv 4-6): Sholat Subuh berjamaah rutin → mulai tilawah harian. " +
+    "Tahap 3 (Lv 7-9): 3-4 waktu berjamaah di masjid → tilawah min 1 halaman. " +
+    "Tahap 4 (Lv 10-12): 5 waktu berjamaah → mulai tahajud 3x seminggu → dzikir pagi petang. " +
+    "Tahap 5 (Lv 13-15): 5 waktu berjamaah + sunnah rawatib → tahajud rutin → wirid. " +
+    "Tahap 6 (Lv 16-19): Semua sunnah harian → puasa Senin-Kamis → mulai hafalan. " +
+    "Tahap 7 (Lv 20+): Seluruh sunnah nabi → hafalan Al-Qur'an → dakwah. " +
+    "Gayamu hangat, penuh motivasi ruhiyah, tidak menghakimi. " +
+    "WAJIB: Quest ibadah mencakup sholat berjamaah di masjid dan/atau tahajud sesuai level " + lvl + ".";
 
-  const prompt = roadmap + "\n\n" +
-    "Hunter: " + (player.playerName||"Hunter") + " | Level " + player.level + " (Rank " + rank + ")\n" +
+  // ── MENTOR SELF IMPROVEMENT ────────────────────────────────────────
+  const mentorSelf =
+    "Kamu adalah MENTOR SELF IMPROVEMENT — gabungan coach produktivitas, psikolog habit, dan konselor mental health. " +
+    "Kamu paham framework: Atomic Habits (James Clear), Deep Work (Cal Newport), dan psikologi Islam. " +
+    "Progression self improvement: " +
+    "Level 1-3: Bangun satu kebiasaan micro (2 menit rule), journaling singkat. " +
+    "Level 4-6: Habit stacking, baca buku 10-20 menit, kurangi satu kebiasaan buruk. " +
+    "Level 7-9: Time blocking, digital detox ringan, gratitude journal. " +
+    "Level 10-12: Deep work session 25-50 menit, baca buku ilmu agama + dunia, mindfulness. " +
+    "Level 13-15: Mentoring orang lain, pkembangkan skill spesifik, ikhtiar karir. " +
+    "Level 16+: Kontribusi nyata, kepemimpinan, berbagi ilmu. " +
+    "Gayamu seperti sahabat cerdas yang selalu dorong kamu maju tapi tetap menjaga keseimbangan mental.";
+
+  const prompt =
+    "Kamu adalah SISTEM AI yang mengelola 3 mentor sekaligus untuk seorang hunter Muslim.\n\n" +
+    "=== PROFIL HUNTER ===\n" +
+    "Nama: " + (player.playerName||"Hunter") + "\n" +
+    "Level: " + lvl + " (Rank " + rank + ")\n" +
     "Stats: " + statLine + "\n\n" +
-    "ASSESSMENT HARI INI:\n" +
+    "=== ASSESSMENT HARI INI ===\n" +
     "[FISIK]\n" +
-    "- Kondisi: " + (a.fisik_kondisi||"-") + "\n" +
-    "- Terakhir latihan: " + (a.fisik_latihan||"-") + "\n" +
-    "- Target: " + fisikTarget + "\n\n" +
+    "Kondisi: " + (a.fisik_kondisi||"-") + "\n" +
+    "Terakhir latihan: " + (a.fisik_latihan||"-") + "\n" +
+    "Target: " + fisikTarget + "\n\n" +
     "[IMAN]\n" +
-    "- Sholat berjamaah: " + (a.iman_sholat||"-") + "\n" +
-    "- Tahajud: " + (a.iman_tahajud||"-") + "\n" +
-    "- Tilawah: " + (a.iman_tilawah||"-") + "\n\n" +
+    "Sholat berjamaah: " + (a.iman_sholat||"-") + "\n" +
+    "Tahajud: " + (a.iman_tahajud||"-") + "\n" +
+    "Tilawah: " + (a.iman_tilawah||"-") + "\n\n" +
     "[SELF IMPROVEMENT]\n" +
-    "- Mental: " + (a.self_mood||"-") + "\n" +
-    "- Kebiasaan buruk: " + selfBuruk + "\n" +
-    "- Target: " + selfTarget + "\n\n" +
-    "Tugasmu: generate quest harian yang:\n" +
-    "1. SCALED ke level " + player.level + " — makin tinggi level, makin berat dan spesifik\n" +
-    "2. Balance antara 3 kategori: Fisik, Iman, Self Improvement\n" +
-    "3. Quest IMAN wajib ada sholat berjamaah di masjid dan/atau tahajud sesuai level\n" +
-    "4. Quest FISIK fokus kalistenik bodyweight (push-up, pull-up, squat, dips, dll)\n" +
-    "5. Quest SELF IMPROVEMENT mencakup ilmu, produktivitas, dan/atau mental health\n" +
-    "6. Jumlah quest disesuaikan kondisi energi hunter\n" +
-    "7. Setiap quest SPESIFIK dan TERUKUR (ada angka atau durasi)\n\n" +
+    "Mental/produktivitas: " + (a.self_mood||"-") + "\n" +
+    "Kebiasaan buruk: " + selfBuruk + "\n" +
+    "Target: " + selfTarget + "\n\n" +
+    "=== IDENTITAS MENTOR ===\n" +
+    mentorKalistenik + "\n\n" +
+    mentorIbadah + "\n\n" +
+    mentorSelf + "\n\n" +
+    "=== INSTRUKSI GENERATE QUEST ===\n" +
+    "Setiap mentor assign quest sesuai keahliannya:\n" +
+    "- Mentor Kalistenik: 1-3 quest Fisik\n" +
+    "- Mentor Ibadah: 1-3 quest Iman\n" +
+    "- Mentor Self Improvement: 1-2 quest Self Improvement\n" +
+    "Total: 4-7 quest sesuai kondisi energi hunter.\n\n" +
+    "ATURAN:\n" +
+    "1. Setiap quest SPESIFIK dan TERUKUR (ada angka/durasi/target jelas)\n" +
+    "2. Difficulty sesuai level " + lvl + " — tidak terlalu mudah atau berat\n" +
+    "3. Quest Fisik: kalistenik bodyweight SAJA (push-up, pull-up, squat, dll)\n" +
+    "4. Quest Iman: WAJIB ada sholat berjamaah di masjid\n" +
+    "5. Quest Self: relevan dengan kebiasaan buruk dan target hunter\n\n" +
     "Return ONLY a JSON array, no markdown, no extra text.\n" +
-    'Each: {"id":"unique_id","text":"Deskripsi dalam Bahasa Indonesia","exp":20-100,"stat":"STR|AGI|VIT|INT|WIS","category":"Fisik|Iman|Self Improvement","difficulty":"E|D|C|B|A|S","action":"Aksi spesifik terukur"}';
+    'Each: {"id":"uid","text":"Deskripsi Bahasa Indonesia","exp":20-100,"stat":"STR|AGI|VIT|INT|WIS","category":"Fisik|Iman|Self Improvement","difficulty":"E|D|C|B|A|S","action":"Aksi spesifik terukur","mentor":"Kalistenik|Ibadah|Self Improvement"}';
 
-  const res=await fetch("/.netlify/functions/quest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt})});
+  const res = await fetch("/.netlify/functions/quest",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({prompt}),
+  });
   if(!res.ok){const e=await res.text();throw new Error("HTTP "+res.status+": "+e.slice(0,150));}
-  const data=await res.json();
+  const data = await res.json();
   if(data.error)throw new Error("API Error: "+(data.error.message||JSON.stringify(data.error)));
-  const text=data.text||"[]";
+  const text = data.text||"[]";
   try{
     const clean=text.replace(/```json|```/g,"").trim();
     return JSON.parse(clean).map(q=>({...q,completed:false,date:today()}));
@@ -667,6 +710,29 @@ export default function App(){
   },[state, userId]);
 
   useEffect(()=>{setGlitch(true);setTimeout(()=>setGlitch(false),600);},[]);
+
+  // Auto-refresh quest setiap hari baru
+  useEffect(()=>{
+    if(!state.setupDone) return;
+    const isNewDay = state.questDate !== today();
+    if(isNewDay && state.assessment){
+      // Reset quests dan generate baru otomatis
+      const autoGenerate = async () => {
+        showNotif("info","⚙️ Hari baru! Quest sedang di-refresh...");
+        try{
+          const quests = await generateQuestsFromAI(state);
+          if(quests.length > 0){
+            setState(s=>({...s, quests, questDate:today()}));
+            showNotif("success","✅ Quest hari baru sudah siap!");
+          }
+        }catch(e){
+          showNotif("error","⚠️ Auto-refresh gagal. Tekan GET QUEST manual.");
+        }
+      };
+      autoGenerate();
+    }
+  // eslint-disable-next-line
+  },[state.setupDone, state.questDate]);
 
   const showNotif=useCallback((type,msg,ms=3500)=>{setNotif({type,msg});setTimeout(()=>setNotif(null),ms);},[]);
 
